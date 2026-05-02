@@ -6,7 +6,7 @@ namespace Plat_prog.Services
     public class MovieService
     {
         private readonly HttpClient _httpClient;
-        private readonly string apiKey = "API_KEY";
+        private readonly string apiKey = "d9968a4e";
 
         public MovieService(HttpClient httpClient)
         {

@@ -1,8 +1,14 @@
 ﻿@page "/movie/{imdbId}"
 @rendermode InteractiveServer
 @using Plat_prog.Models
+@using Microsoft.EntityFrameworkCore
+@using Microsoft.AspNetCore.Identity
+@using Microsoft.AspNetCore.Components.Authorization
+@inject UserManager<ApplicationUser> UserManager
+@inject AuthenticationStateProvider AuthStateProvider
 @inject Plat_prog.Services.MovieService MovieService
 @inject Plat_prog.Data.AppDbContext Db
+@attribute [AllowAnonymous]
 
 <h3>Szczegóły filmu</h3>
 
@@ -24,17 +30,32 @@ else
     @foreach (var review in reviews)
     {
         <div>
+            <b>@review.User?.Email</b> | @review.CreatedAt <br />
             @review.Rating <br />
             @review.Content
+            @if (isAdmin)
+            {
+                <button @onclick="() => DeleteReview(review.Id)">Delete</button>
+            }
         </div>
         <hr />
     }
 
-    <h5>Dodaj opinię:</h5>
+    <AuthorizeView>
+        <Authorized>
+            <h5>Dodaj opinię:</h5>
 
-    <input @bind="newReview.Content" placeholder="Opinia" />
-    <input type="number" @bind="newReview.Rating" min="1" max="10" />
-    <button @onclick="AddReview">Dodaj</button>
+            <input @bind="newReview.Content" placeholder="Opinia" />
+            <input type="number" @bind="newReview.Rating" min="1" max="10" />
+            <button @onclick="AddReview">Dodaj</button>
+        </Authorized>
+
+        <NotAuthorized>
+            <p><b>Zaloguj się, aby dodać opinię.</b>
+                <a href="/login">Przejdź do logowania</a>
+            </p>
+        </NotAuthorized>
+    </AuthorizeView>
 }
 
 @code {
@@ -44,19 +65,65 @@ else
     List<Review> reviews = new();
     Review newReview = new();
 
+    bool isAdmin = false;//
+
     protected override async Task OnInitializedAsync()
     {
         movie = await MovieService.GetMovieDetails(imdbId);
         reviews = Db.Reviews.Where(r => r.ImdbId == imdbId).ToList();
+        //
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var user = await UserManager.GetUserAsync(authState.User);
+
+        if (user != null)
+        {
+            isAdmin = await UserManager.IsInRoleAsync(user, "Admin");
+        }
+        //
     }
 
     async Task AddReview()
     {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+
+        if (!authState.User.Identity.IsAuthenticated)
+            return;
+
+        var user = await UserManager.GetUserAsync(authState.User);
+        if (user == null)
+            return;
+
+        newReview.UserId = user.Id;
         newReview.ImdbId = imdbId;
+        newReview.CreatedAt = DateTime.Now;
+
         Db.Reviews.Add(newReview);
         await Db.SaveChangesAsync();
 
-        reviews = Db.Reviews.Where(r => r.ImdbId == imdbId).ToList();
+        // odświeżanie listy + doładowanie użytkownika
+        reviews = await Db.Reviews
+            .Where(r => r.ImdbId == imdbId)
+            .Include(r => r.User)
+            .OrderByDescending(r => r.CreatedAt)
+            .ToListAsync();
+
+        // reset formularza
         newReview = new Review();
+    }
+
+    async Task DeleteReview(int id)
+    {
+        var review = await Db.Reviews.FindAsync(id);
+
+        if (review != null)
+        {
+            Db.Reviews.Remove(review);
+            await Db.SaveChangesAsync();
+
+            reviews = await Db.Reviews
+                .Where(r => r.ImdbId == imdbId)
+                .Include(r => r.User)
+                .ToListAsync();
+        }
     }
 }

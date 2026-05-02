@@ -1,0 +1,22 @@
+﻿@page "/login"
+@rendermode InteractiveServer
+
+
+<h3>Login</h3>
+
+@if (!string.IsNullOrEmpty(error))
+{
+    <p style="color:red;">Błędne dane logowania</p>
+}
+
+<form method="post" action="/login-post">
+    <input name="email" placeholder="Email" />
+    <input name="password" type="password" placeholder="Password" />
+
+    <button type="submit">Login</button>
+</form>
+
+@code {
+    [SupplyParameterFromQuery]
+    public string? error { get; set; }
+}

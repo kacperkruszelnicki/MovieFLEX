@@ -1,11 +1,4 @@
 ﻿@page "/"
-
-@*<PageTitle>Home</PageTitle>
-
-<h1>Hello, world!</h1>
-
-Welcome to your new app.*@
-
 <h3>Movie App</h3>
 
 <p>Witaj w aplikacji do wyszukiwania filmów.</p>
@@ -16,5 +9,10 @@ Welcome to your new app.*@
 
 <ul>
     <li><a href="/search">Search Movies</a></li>
-    <li><a href="/saved">Saved Movies</a></li>
+    <AuthorizeView>
+        <Authorized>
+			<li><a href="/saved">Saved Movies</a></li>
+        </Authorized>
+    </AuthorizeView>
+    
 </ul>

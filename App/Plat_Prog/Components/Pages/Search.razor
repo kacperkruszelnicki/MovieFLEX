@@ -3,11 +3,11 @@
 @using Plat_prog.Models
 @inject Plat_prog.Services.MovieService MovieService
 @inject Plat_prog.Data.AppDbContext Db
+@attribute [AllowAnonymous]
 
 <h3>Search Movies</h3>
 
 <input @bind="query" placeholder="Enter movie title" />
-@*<button @onclick="SearchMovies">Search</button>*@
 <button @onclick="async () => await SearchMovies()">Search</button>
 <p>@debugMessage</p>
 
@@ -18,21 +18,20 @@
         {
             <li>
                 <b>@movie.Title</b> (@movie.Year)
-                <button @onclick="() => SaveMovie(movie)">Save</button>
+                <AuthorizeView>
+                    <Authorized>
+                        <button @onclick="() => SaveMovie(movie)">Zapisz</button>
+                    </Authorized>
+
+                    <NotAuthorized>
+                        <span>Zaloguj się, aby zapisać</span>
+                    </NotAuthorized>
+                </AuthorizeView>
                 <a href="/movie/@movie.ImdbId">Szczegóły</a>
             </li>
         }
     </ul>
 }
-@*@if (movies != null)
-{
-    <ul>
-        @foreach (var movie in movies)
-        {
-            <li>@movie.Title (@movie.Year)</li>
-        }
-    </ul>
-}*@
 
 @code {
     string query;
@@ -46,48 +45,24 @@
         debugMessage = $"Znaleziono: {movies?.Count}";
     }
 
+    @inject AuthenticationStateProvider AuthStateProvider
+
+    @inject UserManager<ApplicationUser> UserManager
+
     async Task SaveMovie(Movie movie)
     {
-        if (!Db.Movies.Any(m => m.ImdbId == movie.ImdbId))
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var user = await UserManager.GetUserAsync(authState.User);
+
+        if (user == null)
+            return;
+
+        if (!Db.Movies.Any(m => m.ImdbId == movie.ImdbId && m.UserId == user.Id))
         {
-            try
-            {
-                Db.Movies.Add(new Movie
-                {
-                    Title = movie.Title,
-                    Year = movie.Year,
-                    ImdbId = movie.ImdbId,
-                    Poster = movie.Poster,
+            movie.UserId = user.Id;
 
-                    Plot = "",
-                    Director = "",
-                    Actors = "",
-                    Genre = "",
-                    ImdbRating = ""
-                });
-
-                await Db.SaveChangesAsync();
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine("BŁĄD:");
-                Console.WriteLine(ex.ToString());
-            }
+            Db.Movies.Add(movie);
+            await Db.SaveChangesAsync();
         }
-        //{
-            //Db.Movies.Add(movie);
-            //await Db.SaveChangesAsync();
-            //try
-            //{
-              //  Db.Movies.Add(movie);
-                //await Db.SaveChangesAsync();
-            //}
-            //catch (Exception ex)
-            //{
-              //  Console.WriteLine(ex.Message);
-                //Console.WriteLine("BŁĄD:");
-                //Console.WriteLine(ex.ToString());
-            //}
-        //}
     }
 }

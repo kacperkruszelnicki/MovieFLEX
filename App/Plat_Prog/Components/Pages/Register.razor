@@ -1,0 +1,24 @@
+﻿@page "/register"
+@rendermode InteractiveServer
+@using Microsoft.AspNetCore.Identity
+@using Plat_prog.Models
+@inject UserManager<ApplicationUser> UserManager
+@attribute [AllowAnonymous]
+
+<h3>Rejestracja</h3>
+
+<input @bind="email" placeholder="Email" />
+<input @bind="password" type="password" />
+
+<button @onclick="RegisterUser">Zarejestruj</button>
+
+@code {
+    string email;
+    string password;
+
+    async Task RegisterUser()
+    {
+        var user = new ApplicationUser { UserName = email, Email = email };
+        await UserManager.CreateAsync(user, password);
+    }
+}

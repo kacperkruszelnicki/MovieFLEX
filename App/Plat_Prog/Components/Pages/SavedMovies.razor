@@ -2,6 +2,8 @@
 @rendermode InteractiveServer
 @using Plat_prog.Models
 @inject Plat_prog.Data.AppDbContext Db
+@attribute [Authorize]
+@**@
 
 <h3>Saved Movies</h3>
 
@@ -24,29 +26,45 @@ else
         }
     </ul>
 }
+@inject AuthenticationStateProvider AuthStateProvider
+@inject UserManager<ApplicationUser> UserManager
 
 @code {
     List<Movie> movies;
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
-        LoadMovies();
-    }
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var user = await UserManager.GetUserAsync(authState.User);
 
-    void LoadMovies()
-    {
-        movies = Db.Movies.ToList();
+        if (user == null)
+        {
+            movies = new List<Movie>();
+            return;
+        }
+
+        movies = Db.Movies
+            .Where(m => m.UserId == user.Id)
+            .ToList();
     }
 
     async Task DeleteMovie(int id)
     {
-        var movie = Db.Movies.FirstOrDefault(m => m.Id == id);
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var user = await UserManager.GetUserAsync(authState.User);
+
+        if (user == null)
+            return;
+
+        var movie = Db.Movies
+            .FirstOrDefault(m => m.Id == id && m.UserId == user.Id);
 
         if (movie != null)
         {
             Db.Movies.Remove(movie);
             await Db.SaveChangesAsync();
-            LoadMovies();
+
+            movies = movies.Where(m => m.Id != id).ToList();
         }
     }
 }
