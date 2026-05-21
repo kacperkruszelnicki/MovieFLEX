@@ -1,24 +1,73 @@
 ﻿@page "/register"
 @rendermode InteractiveServer
+
 @using Microsoft.AspNetCore.Identity
 @using Plat_prog.Models
+@using System.ComponentModel.DataAnnotations
+
 @inject UserManager<ApplicationUser> UserManager
+
 @attribute [AllowAnonymous]
 
 <h3>Rejestracja</h3>
 
-<input @bind="email" placeholder="Email" />
-<input @bind="password" type="password" />
+<EditForm Model="model" OnValidSubmit="RegisterUser">
 
-<button @onclick="RegisterUser">Zarejestruj</button>
+    <DataAnnotationsValidator />
+    <ValidationSummary />
+
+    <div>
+        <InputText @bind-Value="model.Email"
+                   placeholder="Email" />
+    </div>
+
+    <div>
+        <InputText @bind-Value="model.Password"
+                   type="password"
+                   placeholder="Hasło" />
+    </div>
+
+    <div>
+        <InputText @bind-Value="model.ConfirmPassword"
+                   type="password"
+                   placeholder="Powtórz hasło" />
+    </div>
+
+    <button type="submit">
+        Zarejestruj
+    </button>
+
+</EditForm>
+
+<p>@message</p>
 
 @code {
-    string email;
-    string password;
+
+    RegisterModel model = new();
+
+    string message = "";
 
     async Task RegisterUser()
     {
-        var user = new ApplicationUser { UserName = email, Email = email };
-        await UserManager.CreateAsync(user, password);
+        var user = new ApplicationUser
+        {
+            UserName = model.Email,
+            Email = model.Email
+        };
+
+        var result = await UserManager.CreateAsync(
+            user,
+            model.Password
+        );
+
+        if (result.Succeeded)
+        {
+            message = "Rejestracja zakończona sukcesem";
+        }
+        else
+        {
+            message = string.Join(", ",
+                result.Errors.Select(e => e.Description));
+        }
     }
 }
