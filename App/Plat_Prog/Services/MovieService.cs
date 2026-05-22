@@ -13,9 +13,9 @@ namespace Plat_prog.Services
             _httpClient = httpClient;
         }
 
-        public async Task<List<Movie>> SearchMovies(string title)
+        public async Task<OmdbSearchResponse> SearchMovies(string title, int page = 1)
         {
-            var url = $"http://www.omdbapi.com/?s={title}&apikey={apiKey}";
+            var url = $"http://www.omdbapi.com/?s={title}&page={page}&apikey={apiKey}";
             var response = await _httpClient.GetStringAsync(url);
 
             var json = JsonDocument.Parse(response);
@@ -35,7 +35,18 @@ namespace Plat_prog.Services
                 }
             }
 
-            return movies;
+            int totalResults = 0;
+
+            if (json.RootElement.TryGetProperty("totalResults", out var total))
+            {
+                int.TryParse(total.GetString(), out totalResults);
+            }
+            
+            return new OmdbSearchResponse
+            {
+                Movies = movies,
+                TotalResults = totalResults
+            };
         }
         public async Task<Movie> GetMovieDetails(string imdbId)
         {
