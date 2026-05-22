@@ -1,4 +1,4 @@
-﻿@page "/search"
+@page "/search"
 @rendermode InteractiveServer
 @using Plat_prog.Models
 @inject Plat_prog.Services.MovieService MovieService
@@ -33,16 +33,36 @@
     </ul>
 }
 
+@if (movies != null && movies.Count > 0)
+{
+    <button @onclick="LoadMoreMovies">
+        Załaduj więcej
+    </button>
+}
+
 @code {
     string query;
     List<Movie> movies;
     string debugMessage = "";
+    int currentPage = 1;
+
+    async Task LoadMoreMovies()
+    {
+        currentPage++;
+
+        var moreMovies = await MovieService.SearchMovies(query, currentPage);
+
+        movies.AddRange(moreMovies.Movies);
+    }
 
     async Task SearchMovies()
     {
         debugMessage = "Searching...";
-        movies = await MovieService.SearchMovies(query);
-        debugMessage = $"Znaleziono: {movies?.Count}";
+        var result = await MovieService.SearchMovies(query, currentPage);
+
+        movies = result.Movies;
+
+        debugMessage = $"Znaleziono: {result.TotalResults}";
     }
 
     @inject AuthenticationStateProvider AuthStateProvider
