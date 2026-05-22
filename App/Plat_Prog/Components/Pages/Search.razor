@@ -3,6 +3,8 @@
 @using Plat_prog.Models
 @inject Plat_prog.Services.MovieService MovieService
 @inject Plat_prog.Data.AppDbContext Db
+@inject AuthenticationStateProvider AuthStateProvider
+@inject UserManager<ApplicationUser> UserManager
 @attribute [AllowAnonymous]
 
 <h3>Search Movies</h3>
@@ -10,6 +12,7 @@
 <input @bind="query" placeholder="Enter movie title" />
 <button @onclick="async () => await SearchMovies()">Search</button>
 <p>@debugMessage</p>
+<p style="color:green;">@saveMessage</p>
 
 @if (movies != null)
 {
@@ -20,7 +23,18 @@
                 <b>@movie.Title</b> (@movie.Year)
                 <AuthorizeView>
                     <Authorized>
-                        <button @onclick="() => SaveMovie(movie)">Zapisz</button>
+                        @if (savedMovieIds.Contains(movie.ImdbId))
+                        {
+                            <span style="color:green;">
+                                Film zapisany ✔
+                            </span>
+                        }
+                        else
+                        {
+                            <button @onclick="() => SaveMovie(movie)">
+                                Zapisz
+                            </button>
+                        }
                     </Authorized>
 
                     <NotAuthorized>
@@ -41,10 +55,34 @@
 }
 
 @code {
-    string query;
-    List<Movie> movies;
+    string query = "";
+    List<Movie> movies = new();
     string debugMessage = "";
+    string saveMessage = "";
     int currentPage = 1;
+    HashSet<string> savedMovieIds = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadSavedMovies();
+    }
+
+    async Task LoadSavedMovies()
+    {
+        var authState =
+            await AuthStateProvider.GetAuthenticationStateAsync();
+
+        var user =
+            await UserManager.GetUserAsync(authState.User);
+
+        if (user == null)
+            return;
+
+        savedMovieIds = Db.Movies
+            .Where(m => m.UserId == user.Id)
+            .Select(m => m.ImdbId)
+            .ToHashSet();
+    }
 
     async Task LoadMoreMovies()
     {
@@ -57,6 +95,8 @@
 
     async Task SearchMovies()
     {
+        saveMessage = "";
+        currentPage = 1;
         debugMessage = "Searching...";
         var result = await MovieService.SearchMovies(query, currentPage);
 
@@ -64,10 +104,6 @@
 
         debugMessage = $"Znaleziono: {result.TotalResults}";
     }
-
-    @inject AuthenticationStateProvider AuthStateProvider
-
-    @inject UserManager<ApplicationUser> UserManager
 
     async Task SaveMovie(Movie movie)
     {
@@ -77,12 +113,29 @@
         if (user == null)
             return;
 
-        if (!Db.Movies.Any(m => m.ImdbId == movie.ImdbId && m.UserId == user.Id))
-        {
-            movie.UserId = user.Id;
+        bool alreadySaved = Db.Movies
+        .Any(m => m.ImdbId == movie.ImdbId && m.UserId == user.Id);
 
-            Db.Movies.Add(movie);
-            await Db.SaveChangesAsync();
+        if (alreadySaved)
+        {
+            saveMessage = "Film już zapisany";
+            return;
         }
+        var savedMovie = new Movie
+        {
+            Title = movie.Title,
+            Year = movie.Year,
+            ImdbId = movie.ImdbId,
+            Poster = movie.Poster,
+            UserId = user.Id
+        };
+
+        Db.Movies.Add(savedMovie);
+
+        await Db.SaveChangesAsync();
+
+        savedMovieIds.Add(movie.ImdbId);
+
+        saveMessage = $"Zapisano film: {movie.Title}";
     }
 }
